@@ -296,3 +296,169 @@ ukrainian-review-sentiment-model
 Остання та найкраща версія моделі: ukrainian-review-sentiment-model v6
 
 URI моделі для використання в наступному домашньому завданні: models:/ukrainian-review-sentiment-model/6
+
+***HW3 — Інференс моделі***
+
+У цьому домашньому завданні реалізовано сервіс інференсу моделі машинного навчання, навченої у HW2.
+
+Модель використовується для класифікації українських текстових відгуків за трьома класами:
+
+positive
+negative
+neutral
+
+Для зберігання та версіонування моделі використано MLflow Model Registry.
+
+Модель не завантажується як окремий файл з репозиторію. Під час запуску FastAPI-сервіс підключається до MLflow Model Registry і завантажує модель за URI:
+
+models:/ukrainian-review-sentiment-model/6
+
+Використані інструменти
+FastAPI — для створення REST API;
+Uvicorn — для запуску FastAPI-сервісу;
+MLflow Model Registry — для зберігання та завантаження версійованої моделі;
+scikit-learn — для роботи з навченою моделлю;
+pandas — для підготовки даних для інференсу.
+Структура проєкту
+
+app/
+  init.py
+  main.py
+requirements.txt
+README.md
+mlflow.db
+mlartifacts/
+
+Основна логіка інференсу реалізована у файлі:
+
+app/main.py
+
+Підготовка середовища
+
+Перед запуском потрібно активувати Python-середовище:
+
+..venv\Scripts\activate
+
+Після цього потрібно встановити залежності:
+
+python -m pip install -r requirements.txt
+
+Запуск MLflow Tracking Server
+
+Спочатку потрібно запустити локальний MLflow Tracking Server, який надає доступ до MLflow Model Registry.
+
+У першому терміналі потрібно виконати команду:
+
+python -m mlflow server --backend-store-uri sqlite:///mlflow.db --default-artifact-root ./mlartifacts --host 127.0.0.1 --port 5000
+
+Після запуску MLflow server буде доступний за адресою:
+
+http://127.0.0.1:5000
+
+Цей термінал потрібно залишити відкритим.
+
+Запуск FastAPI-сервісу
+
+В іншому терміналі потрібно активувати Python-середовище:
+
+..venv\Scripts\activate
+
+Далі потрібно вказати адресу MLflow Tracking Server:
+
+$env:MLFLOW_TRACKING_URI="http://127.0.0.1:5000"
+
+Також потрібно вказати модель з MLflow Model Registry:
+
+$env:MLFLOW_MODEL_URI="models:/ukrainian-review-sentiment-model/6"
+
+Після цього потрібно запустити FastAPI-сервіс:
+
+python -m uvicorn app.main:app --reload
+
+Після запуску сервіс буде доступний за адресою:
+
+http://127.0.0.1:8000
+
+Документація API доступна за адресою:
+
+http://127.0.0.1:8000/docs
+
+Перевірка роботи сервісу
+
+Для перевірки роботи сервісу потрібно відкрити у браузері:
+
+http://127.0.0.1:8000/docs
+
+На сторінці документації потрібно знайти endpoint:
+
+POST /predict
+
+Далі потрібно натиснути:
+
+Try it out
+
+Після цього у поле запиту потрібно вставити тестові приклади:
+
+{
+"texts": [
+"Мені дуже сподобалось, покупкою задоволена",
+"Поганий сервіс і неякісний товар",
+"Товар отримано, без особливих вражень"
+]
+}
+
+Після натискання кнопки Execute сервіс повертає відповідь моделі.
+
+Приклад відповіді
+
+{
+"model_uri": "models:/ukrainian-review-sentiment-model/6",
+"tracking_uri": "http://127.0.0.1:5000",
+"results": [
+{
+"text": "Мені дуже сподобалось, покупкою задоволена",
+"prediction": "positive",
+"probabilities": {
+"negative": 0.154,
+"neutral": 0.134,
+"positive": 0.712
+}
+},
+{
+"text": "Поганий сервіс і неякісний товар",
+"prediction": "negative",
+"probabilities": {
+"negative": 0.506,
+"neutral": 0.326,
+"positive": 0.168
+}
+},
+{
+"text": "Товар отримано, без особливих вражень",
+"prediction": "neutral",
+"probabilities": {
+"negative": 0.197,
+"neutral": 0.588,
+"positive": 0.215
+}
+}
+]
+}
+
+Значення ймовірностей можуть відрізнятися залежно від версії моделі та вхідних текстів.
+
+Перевірка через термінал
+
+Сервіс також можна перевірити через команду:
+
+Invoke-RestMethod -Uri "http://127.0.0.1:8000/predict" -Method Post -ContentType "application/json" -Body '{"texts":["Мені дуже сподобалось, покупкою задоволена","Поганий сервіс і неякісний товар","Товар отримано, без особливих вражень"]}'
+
+Результат
+
+У результаті було розгорнуто REST API для інференсу моделі.
+
+FastAPI-сервіс завантажує модель, навченої у HW2, з MLflow Model Registry за URI:
+
+models:/ukrainian-review-sentiment-model/6
+
+Endpoint /predict приймає тестові текстові приклади та повертає передбачення моделі для кожного з них.

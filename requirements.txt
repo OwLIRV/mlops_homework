@@ -3,3 +3,10 @@ scikit-learn
 mlflow
 matplotlib
 joblib
+fastapi
+uvicorn[standard]
+pydantic
+uvicorn
+prometheus-client
+evidently
+prometheus-client
