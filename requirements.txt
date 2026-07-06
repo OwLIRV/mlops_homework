@@ -9,4 +9,3 @@ pydantic
 uvicorn
 prometheus-client
 evidently
-prometheus-client

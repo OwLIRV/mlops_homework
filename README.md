@@ -462,3 +462,246 @@ FastAPI-сервіс завантажує модель, навченої у HW2,
 models:/ukrainian-review-sentiment-model/6
 
 Endpoint /predict приймає тестові текстові приклади та повертає передбачення моделі для кожного з них.
+
+***HW-4 — Monitoring and Observability у MLOps***
+
+## Мета роботи
+
+У межах домашньої роботи 4 було налаштовано систему моніторингу для ML-сервісу інференсу, який був реалізований у HW-3.
+
+Базою для моніторингу є FastAPI-сервіс, який завантажує модель з MLflow Model Registry та виконує передбачення для текстових відгуків українською мовою.
+
+---
+
+## Що було реалізовано
+
+У проєкті реалізовано:
+
+- інструментацію FastAPI-сервісу за допомогою `prometheus-client`;
+- endpoint `/metrics` для експорту метрик у форматі Prometheus;
+- збір метрик через Prometheus;
+- Grafana dashboard для візуалізації метрик;
+- тестове навантаження через скрипт `load_test.py`;
+- логування передбачень у файл `logs/predictions.csv`;
+- генерацію Evidently drift report для базового аналізу дріфту даних.
+
+---
+
+## Архітектура моніторингу
+
+Система моніторингу побудована за такою схемою:
+
+FastAPI inference service → `/metrics` → Prometheus → Grafana Dashboard
+
+FastAPI-сервіс виконує передбачення моделі та збирає метрики. Prometheus періодично забирає ці метрики з endpoint `/metrics`. Grafana підключається до Prometheus як datasource і відображає метрики на dashboard.
+
+---
+
+## Основні файли, додані для HW-4
+
+app/main.py
+docker-compose.monitoring.yml
+monitoring/prometheus.yml
+monitoring/grafana/provisioning/datasources/prometheus.yml
+monitoring/grafana/provisioning/dashboards/dashboard.yml
+monitoring/grafana/dashboards/ml_dashboard.json
+scripts/load_test.py
+scripts/evidently_report.py
+logs/predictions.csv
+reports/data_drift_report.html
+
+---
+
+## Prometheus metrics
+
+У FastAPI-сервісі було додано такі метрики:
+
+### `ml_predictions_total`
+
+Показує загальну кількість передбачень моделі.
+
+Метрика має label `predicted_class`, що дозволяє бачити кількість передбачень окремо для класів:
+
+- `negative`
+- `positive`
+- `neutral`
+
+### `ml_prediction_latency_seconds`
+
+Показує час обробки запиту моделлю.
+
+Ця метрика використовується для розрахунку середнього latency та p95 latency.
+
+### `ml_prediction_batch_size`
+
+Показує кількість текстів в одному запиті до endpoint `/predict`.
+
+### `ml_prediction_errors_total`
+
+Показує кількість помилок під час виконання передбачень.
+
+---
+
+## Запуск MLflow
+
+Спочатку потрібно запустити MLflow Tracking Server:
+
+python -m mlflow server --host 127.0.0.1 --port 5000
+
+MLflow UI буде доступний за адресою:
+
+http://127.0.0.1:5000
+
+---
+
+## Запуск FastAPI inference service
+
+В окремому терміналі потрібно запустити FastAPI-сервіс:
+
+uvicorn app.main:app --host 0.0.0.0 --port 8000
+
+Документація API доступна за адресою:
+
+http://127.0.0.1:8000/docs
+
+Endpoint для метрик:
+
+http://127.0.0.1:8000/metrics
+
+---
+
+## Запуск Prometheus та Grafana
+
+Для запуску Prometheus і Grafana використовується Docker Compose:
+
+docker compose -f docker-compose.monitoring.yml up -d
+
+Prometheus доступний за адресою:
+
+http://localhost:9090
+
+Grafana доступна за адресою:
+
+http://localhost:3000
+
+Дані для входу в Grafana:
+
+Login: admin
+Password: admin
+
+---
+
+## Перевірка Prometheus
+
+Після запуску Prometheus потрібно відкрити:
+
+http://localhost:9090/targets
+
+У списку targets має бути сервіс:
+
+fastapi-ml-service
+
+Статус має бути:
+
+UP
+
+Це означає, що Prometheus успішно збирає метрики з FastAPI-сервісу.
+
+---
+
+## Перевірка метрик у Prometheus
+
+Для перевірки кількості передбачень використовувався запит:
+
+ml_predictions_total
+
+Після запуску тестового навантаження Prometheus показав такі значення:
+
+negative = 70
+positive = 34
+neutral = 16
+
+Загальна кількість передбачень:
+
+70 + 34 + 16 = 120
+
+Це відповідає кількості запитів, які були створені скриптом `load_test.py`.
+
+Ці значення показують не кількість рядків у навчальному датасеті, а кількість передбачень, які модель зробила під час тестового навантаження.
+
+---
+
+## Grafana Dashboard
+
+У Grafana було створено dashboard:
+
+MLOps / ML Inference Monitoring
+
+На dashboard відображаються такі графіки:
+
+- Predictions per minute;
+- Average prediction latency;
+- P95 prediction latency;
+- Predictions by class.
+
+Цей dashboard дозволяє бачити, як працює ML-сервіс під навантаженням: скільки передбачень виконується за хвилину та який середній час обробки запиту.
+
+---
+
+## Генерація тестового навантаження
+
+Для перевірки моніторингу використовується скрипт:
+
+python scripts/load_test.py
+
+Скрипт відправляє 120 запитів до endpoint:
+
+http://127.0.0.1:8000/predict
+
+Після запуску скрипта метрики оновлюються у Prometheus, а Grafana dashboard показує зміну кількості передбачень та latency.
+
+---
+
+## Evidently Drift Report
+
+Для базового аналізу дріфту даних було додано скрипт:
+
+scripts/evidently_report.py
+
+FastAPI-сервіс зберігає інформацію про передбачення у файл:
+
+logs/predictions.csv
+
+У логах зберігаються такі дані:
+
+- timestamp;
+- text;
+- text_length;
+- word_count;
+- prediction;
+- latency_seconds.
+
+На основі цих логів Evidently порівнює старішу частину даних з новішою частиною даних.
+
+Для аналізу використовуються такі ознаки:
+
+- `text_length` — довжина тексту;
+- `word_count` — кількість слів;
+- `prediction` — передбачений клас;
+- `latency_seconds` — час обробки запиту.
+
+Таким чином можна перевірити базовий data drift та prediction drift.
+
+Для генерації Evidently-звіту потрібно виконати:
+
+python scripts/evidently_report.py
+
+Після цього створюється HTML-звіт:
+
+reports/data_drift_report.html
+
+Відкрити звіт можна командою:
+
+start reports\data_drift_report.html
+
+

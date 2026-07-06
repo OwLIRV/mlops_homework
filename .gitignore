@@ -15,3 +15,6 @@ mlflow.db
 models/*.joblib
 reports/*.png
 reports/*.txt
+
+logs/
+app/main_hw3_backup.py
